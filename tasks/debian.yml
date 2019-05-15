@@ -1,0 +1,152 @@
+# http://www.arguslab.org/software/mulval.html
+# Vars
+- name: "Set parameters"
+  set_fact:
+          mulval_path: "/opt/mulval/mulval/bin:/opt/mulval/mulval/utils:/opt/xsb/XSB/bin"
+
+
+- name: "Set MULVALROOT"
+  lineinfile:
+    dest: /etc/environment
+    state: present
+    regexp: '^MULVALROOT'
+    line: 'MULVALROOT=/opt/mulval/mulval'
+    insertbefore: true
+  become: yes
+
+- name: "add {{mulval_path}} to path"
+  lineinfile:
+    dest=/etc/environment
+    state=present
+    backrefs=yes
+    regexp='PATH=(["]*)((?!.*?{{mulval_path}}).*?)(["]*)$'
+    line="PATH=\1\2:{{mulval_path}}\3"
+  become: yes
+
+- name: register ancient java ppa
+  become: yes
+  apt_repository: repo=ppa:openjdk-r/ppa
+  environment: 
+    APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE: True
+
+- name: install openjdk-8
+  become: yes
+  apt: 
+    pkg:
+      - openjdk-8-jdk
+  update_cache: yes
+
+- name: "Install dependencies"
+  become: yes
+  apt:
+    pkg:
+      - git
+      - python-pip
+      - autoconf
+      - build-essential
+      - graphviz
+      - mysql-server
+        #- default-jdk
+        #- openjdk-7-jdk
+      - flex
+      - bison
+      - texlive-font-utils
+
+    state: present
+    #when: ansible_python_version == "2.7.6"
+
+  # https://github.com/flavioc/XSB/blob/master/INSTALL
+- name: "ensure xsb install path exists"
+  file:
+    path: /opt/xsb
+    state: directory
+    owner: "{{ansible_user_id}}"
+  tags: xsb
+  become: yes
+
+- name: "unpack xsb"
+  unarchive:
+    src: http://xsb.sourceforge.net/downloads/XSB.tar.gz
+    dest: /opt/xsb
+    remote_src: yes
+    creates: /opt/xsb/XSB/InstallXSB.jar
+    owner: "{{ansible_user_id}}"
+  tags: xsb
+
+- name: "build xsb"
+  shell: ./configure && ./makexsb
+  args:
+      chdir: /opt/xsb/XSB/build
+      creates: /opt/xsb/XSB/bin/xsb
+
+
+ # http://people.cs.ksu.edu/~xou/argus/software/mulval/readme.html
+- name: "ensure mulval path exists"
+  become: yes
+  file:
+    path: /opt/mulval
+    state: directory
+    owner: "{{ansible_user_id}}"
+  tags: mulval
+
+- name: "unpack mulval"
+  unarchive:
+    src: http://www.arguslab.org/software/mulval_1_1.tar.gz
+    dest: /opt/mulval
+    remote_src: yes
+    creates: /opt/mulval/mulval/Makefile
+    owner: "{{ansible_user_id}}"
+  tags: mulval
+
+  # Fix NVD name change
+  #   String fname="nvd_xml_files/nvdcve-"+Integer.toString(ct)+".xml
+  # Yaml requires escaping backslashes in double quotes but not in single quotes
+  #- name: fix nvd file name change for db sync
+  #replace:
+  #  path: /opt/mulval/mulval/src/adapter/InitializeDB.java
+  #  regexp: 'nvdcve-[^2]'
+  #  replace: 'nvdcve-2.0-"'
+
+- name: add db connect parms to config.txt
+  template:
+    src: templates/config.txt.j2
+    dest: /opt/mulval/mulval/utils/config.txt
+
+- name: fix nvd_sync.sh file name and type changes
+  replace:
+    path: /opt/mulval/mulval/utils/nvd_sync.sh
+    regexp: '^(.*)http://nvd.nist.gov/download/nvdcve-\$i.xml(.*)$'
+    #replace: '\1http://static.nvd.nist.gov/feeds/xml/cve/nvdcve-2.0-$i.xml.zip\2'
+    replace: '\1https://nvd.nist.gov/download/nvdcve-$i.xml.gz\2'
+    backup: True
+
+- name: update nvd_sync.sh to unzip archives
+  lineinfile: 
+    path: /opt/mulval/mulval/utils/nvd_sync.sh
+    insertafter: '^(\s*)\w.*https://nvd.nist.gov/download/nvdcve-\$i.xml.gz$' 
+    line: '      gunzip nvdcve-$i.xml.gz'
+    regexp: '.*gunzip nvdcve-\$i.xml.gz.*'
+
+- name: check if mulval is built  
+  stat: 
+    path: /opt/mulval/mulval/bin/attack_graph 
+  register: mulval_build
+
+- name: "build mulval"
+  make:
+    chdir: /opt/mulval/mulval
+    target: all
+  environment:
+    MULVALROOT: /opt/mulval/mulval
+  when: mulval_build.stat.exists == False
+
+- name: check if nvd db is available
+  become: True
+  shell: mysql -e 'show databases;' | grep nvd
+  register: dbstatus
+
+- name: show dbstatus
+  debug: 
+    var: dbstatus
+
+  #- name: load nvd data
