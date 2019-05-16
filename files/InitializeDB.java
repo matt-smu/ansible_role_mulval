@@ -75,7 +75,7 @@ public class InitializeDB {
 			Statement sql = con.createStatement();
 			sql.execute("drop table if exists nvd");                                                                                                                                                                                                        //,primary key(id)
 			//sql.execute("create table nvd(id varchar(20) not null,soft varchar(160) not null default 'ndefined',rng varchar(100) not null default 'undefined',lose_types varchar(100) not null default 'undefind',severity varchar(20) not null default 'unefined',access varchar(20) not null default 'unefined');");
-			sql.execute("create table nvd(id varchar(20) not null,soft varchar(160) not null default 'ndefined',rng varchar(100) not null default 'undefined',lose_types varchar(100) not null default 'undefind',severity varchar(20) not null default 'unefined',access varchar(20) not null default 'unefined', score float not null default 0.0);");
+			sql.execute("create table nvd(id varchar(20) not null,soft varchar(160) not null default 'ndefined',rng varchar(100) not null default 'undefined',lose_types varchar(100) not null default 'undefind',severity varchar(20) not null default 'unefined',access varchar(20) not null default 'unefined', score double not null default 0.0);");
 
 			SAXReader saxReader = new SAXReader();
 
@@ -93,7 +93,7 @@ public class InitializeDB {
 					String cveid = id.attributeValue("name");
 					String cvss = "";
 					String access = "";
-					float score = 0.0;
+					double score = 0.0;
 					//	System.out.println(cveid + access);
 					String sev = "";
 					String host = "localhost";
