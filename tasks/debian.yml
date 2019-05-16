@@ -127,6 +127,15 @@
     line: '      gunzip nvdcve-$i.xml.gz'
     regexp: '.*gunzip nvdcve-\$i.xml.gz.*'
 
+
+- name: Replace InitializeDB.java to add score field
+  copy:
+    src: InitializeDB.java
+    dest: /opt/mulval/mulval/src/adapter/InitializeDB.java
+    owner: vagrant
+    group: vagrant
+    mode: 0755
+
 - name: check if mulval is built  
   stat: 
     path: /opt/mulval/mulval/bin/attack_graph 
