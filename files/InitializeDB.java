@@ -137,8 +137,8 @@ public class InitializeDB {
 					if (attr.contains("severity")) {
 						sev = id.attributeValue("severity");
 					}
-					if (attr.contains("severity")) {
-                                                sev = id.attributeValue("severity");
+					if (attr.contains("CVSS_score")) {
+                                                score = Double.parseDouble(id.attributeValue("CVSS_score"));
                                         }
 
 					if (attr.contains("CVSS_vector")) 
