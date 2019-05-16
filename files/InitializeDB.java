@@ -199,7 +199,7 @@ public class InitializeDB {
 					//System.out.println(cveid + lose_types + rge + sftw + sev + access);
 					String insert = "insert nvd values('" + cveid + "','"
 						+ sftw + "','" + rge + "','" + lose_types + "','" + sev
-						+ "','" + access+"')";
+						+ "','" + access+ "','" + score +"')";
 					sql.execute(insert);
 				}
 			}
