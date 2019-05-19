@@ -1,2 +1,16 @@
 ---
 # defaults file for mulval
+
+# mulval install options
+mulval_install_dir: /opt
+mulval_home: "{{ mulval_install_dir }}/mulval"
+
+xsb_install_dir: /opt
+xsb_home: "{{ xsb_install_dir }}/XSB"
+
+# mulval run options
+mulval_sync_nvd: False # load the nvd db (slow)
+
+nvd_db_user: nvd
+nvd_db_pass: nvd
+nvd_db_schema: nvd

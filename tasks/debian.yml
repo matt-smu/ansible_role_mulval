@@ -2,7 +2,7 @@
 # Vars
 - name: "Set parameters"
   set_fact:
-          mulval_path: "/opt/mulval/mulval/bin:/opt/mulval/mulval/utils:/opt/xsb/XSB/bin"
+          mulval_path: "{{ mulval_home }}/bin:{{ mulval_home }}/utils:{{xsb_home}}/bin"
 
 
 - name: "Set MULVALROOT"
@@ -10,7 +10,7 @@
     dest: /etc/environment
     state: present
     regexp: '^MULVALROOT'
-    line: 'MULVALROOT=/opt/mulval/mulval'
+    line: 'MULVALROOT={{ mulval_home }}'
     insertbefore: true
   become: yes
 
@@ -58,7 +58,7 @@
   # https://github.com/flavioc/XSB/blob/master/INSTALL
 - name: "ensure xsb install path exists"
   file:
-    path: /opt/xsb
+    path: "{{xsb_install_dir}}"
     state: directory
     owner: "{{ansible_user_id}}"
   tags: xsb
@@ -67,24 +67,24 @@
 - name: "unpack xsb"
   unarchive:
     src: http://xsb.sourceforge.net/downloads/XSB.tar.gz
-    dest: /opt/xsb
+    dest: "{{xsb_install_dir}}"
     remote_src: yes
-    creates: /opt/xsb/XSB/InstallXSB.jar
+    creates: "{{xsb_home}}/InstallXSB.jar"
     owner: "{{ansible_user_id}}"
   tags: xsb
 
 - name: "build xsb"
   shell: ./configure && ./makexsb
   args:
-      chdir: /opt/xsb/XSB/build
-      creates: /opt/xsb/XSB/bin/xsb
+      chdir: "{{xsb_home}}/build"
+      creates: "{{xsb_home}}/bin/xsb"
 
 
  # http://people.cs.ksu.edu/~xou/argus/software/mulval/readme.html
 - name: "ensure mulval path exists"
   become: yes
   file:
-    path: /opt/mulval
+    path: "{{mulval_home}}"
     state: directory
     owner: "{{ansible_user_id}}"
   tags: mulval
@@ -92,9 +92,9 @@
 - name: "unpack mulval"
   unarchive:
     src: http://www.arguslab.org/software/mulval_1_1.tar.gz
-    dest: /opt/mulval
+    dest: "{{mulval_install_dir}}"
     remote_src: yes
-    creates: /opt/mulval/mulval/Makefile
+    creates: "{{ mulval_home }}/Makefile"
     owner: "{{ansible_user_id}}"
   tags: mulval
 
@@ -103,18 +103,18 @@
   # Yaml requires escaping backslashes in double quotes but not in single quotes
   #- name: fix nvd file name change for db sync
   #replace:
-  #  path: /opt/mulval/mulval/src/adapter/InitializeDB.java
+  #  path: "{{ mulval_home }}/src/adapter/InitializeDB.java"
   #  regexp: 'nvdcve-[^2]'
   #  replace: 'nvdcve-2.0-"'
 
 - name: add db connect parms to config.txt
   template:
     src: templates/config.txt.j2
-    dest: /opt/mulval/mulval/utils/config.txt
+    dest: "{{ mulval_home }}/utils/config.txt"
 
 - name: fix nvd_sync.sh file name and type changes
   replace:
-    path: /opt/mulval/mulval/utils/nvd_sync.sh
+    path: "{{ mulval_home }}/utils/nvd_sync.sh"
     regexp: '^(.*)http://nvd.nist.gov/download/nvdcve-\$i.xml(.*)$'
     #replace: '\1http://static.nvd.nist.gov/feeds/xml/cve/nvdcve-2.0-$i.xml.zip\2'
     replace: '\1https://nvd.nist.gov/download/nvdcve-$i.xml.gz\2'
@@ -122,7 +122,7 @@
 
 - name: update nvd_sync.sh to unzip archives
   lineinfile: 
-    path: /opt/mulval/mulval/utils/nvd_sync.sh
+    path: "{{ mulval_home }}/utils/nvd_sync.sh"
     insertafter: '^(\s*)\w.*https://nvd.nist.gov/download/nvdcve-\$i.xml.gz$' 
     line: '      gunzip nvdcve-$i.xml.gz'
     regexp: '.*gunzip nvdcve-\$i.xml.gz.*'
@@ -131,31 +131,75 @@
 - name: Replace InitializeDB.java to add score field
   copy:
     src: InitializeDB.java
-    dest: /opt/mulval/mulval/src/adapter/InitializeDB.java
+    dest: "{{ mulval_home }}/src/adapter/InitializeDB.java"
     owner: vagrant
     group: vagrant
     mode: 0755
 
 - name: check if mulval is built  
   stat: 
-    path: /opt/mulval/mulval/bin/attack_graph 
+    path: "{{ mulval_home }}/bin/attack_graph" 
   register: mulval_build
 
 - name: "build mulval"
   make:
-    chdir: /opt/mulval/mulval
+    chdir: "{{ mulval_home }}"
     target: all
   environment:
-    MULVALROOT: /opt/mulval/mulval
+    MULVALROOT: "{{ mulval_home }}"
   when: mulval_build.stat.exists == False
 
+  #### mysql checks and setup
+  # this is slow so only proceed if necessary
+
 - name: check if nvd db is available
-  become: True
-  shell: mysql -e 'show databases;' | grep nvd
+  shell: "mysql --defaults-extra-file=<(printf '[client]\nuser = %s\npassword = %s' nvd nvd)  -e 'show databases;' | grep -c {{nvd_db_schema}}"
+  args:
+    executable: /bin/bash
   register: dbstatus
+  no_log: False
+  failed_when: dbstatus.rc > 1 # 1 means no matches... not an error
+  tags: [db]
+  when: mulval_sync_nvd == True
+
+- name: check if nvd table is available
+  become: True
+  shell: "mysql  --defaults-extra-file=<(printf '[client]\nuser = %s\npassword = %s' nvd nvd) -e 'use {{nvd_db_schema}}; show tables;' | grep -c {{nvd_db_schema}}"
+  args:
+    executable: /bin/bash
+  register: tablestatus
+  no_log: False
+  failed_when: tablestatus.rc > 1 # 1 means no matches... not an error
+  tags: [db]
+  when: mulval_sync_nvd == True and dbstatus.rc == 0
 
 - name: show dbstatus
   debug: 
     var: dbstatus
+  tags: [db]
+  when: mulval_sync_nvd == True
 
-  #- name: load nvd data
+- name: check if nvd is populated
+  become: True
+  shell: "mysql --defaults-extra-file=<(printf '[client]\nuser = %s\npassword = %s' nvd nvd) -e 'select count(*) from nvd.nvd' | grep '[0-9]'"
+  args:
+    executable: /bin/bash
+  register: dbfull
+  no_log: False
+  failed_when: dbfull.rc > 1 # 1 means no matches... not an error
+  when: mulval_sync_nvd == True and tablestatus.rc == 0
+  tags: [db]
+  
+- name: show dbfull
+  debug:
+    var: dbfull
+  when: mulval_sync_nvd == True
+  tags: [db]
+
+ #- name: load nvd data
+- name: sync mulval nvd db (set mulval_sync_nvd to False to disable)
+  shell: "/bin/bash {{mulval_home}}/utils/nvd_sync.sh"
+  args:
+    chdir: "{{mulval_home}}/utils"
+  when: mulval_sync_nvd == True and (dbstatus.rc != 0 or tablestatus.rc !=0)
+  tags: [db]
