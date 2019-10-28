@@ -66,7 +66,7 @@
 
 - name: "unpack xsb"
   unarchive:
-    src: http://xsb.sourceforge.net/downloads/XSB.tar.gz
+    src: "{{xsb_release}}"
     dest: "{{xsb_install_dir}}"
     remote_src: yes
     creates: "{{xsb_home}}/InstallXSB.jar"
@@ -74,10 +74,11 @@
   tags: xsb
 
 - name: "build xsb"
-  shell: ./configure && ./makexsb
+  shell: ./configure && ./makexsb clean && ./makexsb
   args:
       chdir: "{{xsb_home}}/build"
       creates: "{{xsb_home}}/bin/xsb"
+  tags: xsb
 
 
  # http://people.cs.ksu.edu/~xou/argus/software/mulval/readme.html

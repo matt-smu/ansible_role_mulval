@@ -8,6 +8,20 @@ mulval_home: "{{ mulval_install_dir }}/mulval"
 xsb_install_dir: /opt
 xsb_home: "{{ xsb_install_dir }}/XSB"
 
+#xsb_release: https://sourceforge.net/projects/xsb/files/xsb/3.7%20%28Clan%20MacGregor%29/XSB.tar.gz/download
+# latest
+#xsb_release: https://sourceforge.net/projects/xsb/files/xsb/3.8%20Three-Buck%20Chuck/XSB38.tar.gz/download
+# undefined reference to `trie_asserted_clref'
+# xsb_release: https://sourceforge.net/projects/xsb/files/xsb/3.6%20%28Gazpatcho%29/XSB360.tar.gz/download
+# x86_64-unknown-linux-gnu
+# xsb_release: https://sourceforge.net/projects/xsb/files/xsb/3.5%20%28Maotai%29/XSB.tar.gz/download
+# x86_64-unknown-linux-gnu
+# xsb_release: https://sourceforge.net/projects/xsb/files/xsb/XSB%203.1%20%28Incognito%29/XSB-unix.tar.gz/download
+# ++Memory violation occurred during evaluation.
+# xsb_release: https://sourceforge.net/projects/xsb/files/xsb/3.0.1%20%28Sagres%29/xsb-3.0.1-src.tar.gz/download
+# xsb_release: https://sourceforge.net/projects/xsb/files/xsb/2.7.1%20%28Kinryo%29/XSB-2.7.1.src.tar.gz/download
+# xsb_release: http://xsb.sourceforge.net/downloads/XSB.tar.gz # latest
+
 # mulval run options
 mulval_sync_nvd: False # load the nvd db (slow)
 
